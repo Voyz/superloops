@@ -63,7 +63,7 @@ class SuperLoop(ABC):
             self.reset_globally = reset_globally
 
     @abstractmethod
-    def cycle(self):
+    def cycle(self): # pragma: no cover
         raise NotImplementedError()
 
     def on_start(self, *args, **kwargs) -> bool:
@@ -147,9 +147,10 @@ class SuperLoop(ABC):
                     _LOGGER.exception(f'Exception running on_start of {self}: {e}')
 
                 if threading.current_thread() == self._thread:
-                    _LOGGER.info(f'Cannot stop {threading.current_thread().name} from within itself.~~')
+                    _LOGGER.info(f'Cannot stop {threading.current_thread().name} from within itself.')
                 else:
-                    self._thread.join(timeout=self._grace_period)
+                    if self._thread is not None:
+                        self._thread.join(timeout=self._grace_period)
 
                 stopped = not self.is_alive
                 self._thread = None
@@ -177,9 +178,9 @@ class SuperLoop(ABC):
             _LOGGER.info(
                 f'{str(self)}: Exceeded maximum number of failures ({self._failures}/{self._max_loop_failures}), terminating.')
             self._failures = 0
+            self.stop()
             if self._green_light is not None:
                 self._green_light.clear()
-            self.stop()
             return True
         return False
 
@@ -230,7 +231,7 @@ class LoopController(SuperLoop):
         self._reset_callback = reset_callback
 
     @property
-    def green_light(self):
+    def green_light(self): # pragma: no cover
         return self._green_light
 
     def new_loop(self, loop:SuperLoop):
@@ -247,7 +248,10 @@ class LoopController(SuperLoop):
         _LOGGER.info(f'{self}: Resetting')
 
         if self._reset_callback is not None and callable(self._reset_callback):
-            self._reset_callback()
+            try:
+                self._reset_callback()
+            except Exception as e:
+                _LOGGER.exception(f'Exception during reset_callback: {e}')
 
 
         _LOGGER.info(f'{self}: Restarting loops')
