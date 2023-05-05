@@ -67,6 +67,8 @@ class TestSuperLoop(unittest.TestCase):
     def test_on_thread_start(self):
         self.loop.on_thread_start = MagicMock()
         self.loop.start()
+        while not self.loop.is_alive:
+            time.sleep(0.1)
         self.loop.on_thread_start.assert_called_once()
         self.loop.stop()
 
@@ -348,7 +350,7 @@ class TestSuperLoopSelfStop(unittest.TestCase):
             time.sleep(0.1)
             self.assertEqual("TestSuperLoopSelfStop.CustomLoop_0: Started", cm.records[0].msg)
             self.assertEqual("TestSuperLoopSelfStop.CustomLoop_0: Stopping", cm.records[1].msg)
-            self.assertEqual("Cannot stop TestSuperLoopSelfStop.CustomLoop_0 from within itself.~~", cm.records[2].msg)
+            self.assertEqual("Cannot stop TestSuperLoopSelfStop.CustomLoop_0 from within itself.", cm.records[2].msg)
 
 
 class TestIntegration(unittest.TestCase):
