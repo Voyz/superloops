@@ -3,7 +3,7 @@ wrong? [Create an issue and let us know!][issues]*
 
 <p align="center">
     <a id="superloops" href="#superloops">
-        <img src="https://github.com/Voyz/superloops/blob/master/media/superloops_logotype_A01.png" alt="SuperLoops logo" title="SuperLoops logo" width="600"/>
+        <img src="https://github.com/Voyz/superloops/blob/master/media/superloops_logotype_A01.png" alt="SuperLoops logo" title="SuperLoops logo" width="400"/>
     </a>
 </p>
 
@@ -16,12 +16,17 @@ wrong? [Create an issue and let us know!][issues]*
     </a>
 </p>
 
-SuperLoops package simplifies and augments usage of Python threads. 
+```posh
+pip install superloops
+```
+
+
+SuperLoops package simplifies and augments usage of Python threads.
 
 ```python
 class ProcessLoop(SuperLoop):
     def cycle(self):
-        # process stuff
+        # process stuff in a separate thread
 
 loop = ProcessLoop()
 loop.start()
@@ -76,15 +81,7 @@ api_feed_loop.failure() # oops!
 ```
 
 
-In summary, SuperLoops provide support for maintenance, events, failure handling, health status propagation, and graceful termination.
-
-## Installation
-
-To install SuperLoops, run the following command:
-
-```posh
-pip install superloops
-```
+In summary, SuperLoops provide support for thread maintenance, events, failure handling, health status propagation, and graceful termination.
 
 
 ## <a name="how-superloops-works"></a>How does SuperLoops work?
