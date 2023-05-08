@@ -1,4 +1,16 @@
+*This library is currently being beta-tested. See something that's broken? Did we get something
+wrong? [Create an issue and let us know!][issues]*
+
 # SuperLoops
+
+<p align="center">
+    <a href="https://opensource.org/licenses/Apache-2.0">
+        <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg"/> 
+    </a>
+    <a href="https://github.com/Voyz/superloops/releases">
+        <img src="https://img.shields.io/pypi/v/superloops?label=version"/> 
+    </a>
+</p>
 
 SuperLoops package simplifies and augments usage of Python threads. 
 
@@ -71,34 +83,39 @@ pip install superloops
 ```
 
 
-## Usage
+## <a name="how-superloops-works"></a>How does SuperLoops work?
 
-Here is a simple example demonstrating how to use SuperLoops:
+SuperLoop is a class that wraps around a Python `threading.Thread` object. It exposes an interface for thread starting, stopping, hard restarts, graceful termination and events: `on_start`, `on_stop`, `on_thread_start` and `on_thread_stop`.
 
-```python
-from superloops import SuperLoop, GreenLight, LoopController
+Each time you restart a SuperLoop, it will create a new Thread, handling naming and graceful termination for you.
 
-class CustomLoop(SuperLoop):
-    def cycle(self):
-        # Implement custom loop functionality
-        pass
+Aided by the LoopController class, the SuperLoops are able to communicate their health between each other. This ensures that should one SuperLoop fail and need restarting, all other connected SuperLoops would be restarted too.
 
 
-loop_controller = LoopController(reset_callback=None)
-green_light = loop_controller.green_light
-loop1 = CustomLoop(green_light=green_light)
-loop2 = CustomLoop(green_light=green_light)
+## Licence
 
-loop_controller.new_loop(loop1)
-loop_controller.new_loop(loop2)
-
-loop_controller.start()
-```
-
-
-# License
-This project is licensed under the MIT License.
+See [LICENSE](https://github.com/Voyz/superloops/blob/master/LICENSE)
 
 # Disclaimer
 
-This software is provided "as-is" without warranty of any kind. Use at your own risk. The authors are not responsible for any damage or data loss caused by using this software.
+SuperLoops is provided on an AS IS and AS AVAILABLE basis without any representation or endorsement made and without warranty of any kind whether express or implied, including but not limited to the implied warranties of satisfactory quality, fitness for a particular purpose, non-infringement, compatibility, security and accuracy. To the extent permitted by law, SuperLoops' authors will not be liable for any indirect or consequential loss or damage whatever (including without limitation loss of business, opportunity, data, profits) arising out of or in connection with the use of SuperLoops. SuperLoops' authors make no warranty that the functionality of SuperLoops will be uninterrupted or error free, that defects will be corrected or that SuperLoops or the server that makes it available are free of viruses or anything else which may be harmful
+or destructive.
+
+
+## Built by Voy
+
+Hi! Thanks for checking out and using this library. If you are interested in discussing your project, require
+mentorship, consider hiring me, or just wanna chat - I'm happy to talk.
+
+You can send me an email to get in touch: hello@voyzan.com
+
+Or if you'd just want to give something back, I've got a Buy Me A Coffee account:
+
+<a href="https://www.buymeacoffee.com/voyzan" rel="nofollow">
+    <img src="https://raw.githubusercontent.com/Voyz/voyz_public/master/vz_BMC.png" alt="Buy Me A Coffee" style="max-width:100%;" width="192">
+</a>
+
+Thanks and have an awesome day 👋
+
+
+[issues]: https://github.com/Voyz/superloops/issues
