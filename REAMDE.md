@@ -1,7 +1,11 @@
 *This library is currently being beta-tested. See something that's broken? Did we get something
 wrong? [Create an issue and let us know!][issues]*
 
-# SuperLoops
+<p align="center">
+    <a id="superloops" href="#superloops">
+        <img src="https://github.com/Voyz/superloops/blob/master/media/superloops_logotype_A01.png" alt="SuperLoops logo" title="SuperLoops logo" width="600"/>
+    </a>
+</p>
 
 <p align="center">
     <a href="https://opensource.org/licenses/Apache-2.0">
