@@ -373,7 +373,7 @@ class TestIntegration(unittest.TestCase):
         self.called_reset_callback = True
 
     def test_integration(self):
-        logging.basicConfig(level = logging.INFO)
+        # logging.basicConfig(level = logging.INFO)
         self.called_reset_callback = False
         loop_controller = LoopController(reset_callback=self.reset_callback)
 
