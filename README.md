@@ -92,6 +92,69 @@ Each time you restart a SuperLoop, it will create a new Thread, handling naming 
 
 Aided by the LoopController class, the SuperLoops are able to communicate their health between each other. This ensures that should one SuperLoop fail and need restarting, all other connected SuperLoops would be restarted too.
 
+## Events
+
+SuperLoop provides lifecycle events that provide flexibility in managing the loop and its thread.
+
+#### on_start
+
+The `on_start` callback is invoked before a new thread is created and started. It can be used to perform any setup that is required before the loop starts running. 
+
+This method must return a boolean indicating whether the loop should continue starting.
+
+
+#### on_stop
+
+The `on_stop` callback is invoked after the loop's thread is stopped. This method can be used to perform any cleanup that is required after the loop has stopped running.
+
+#### on_thread_start
+
+The `on_thread_start` callback is invoked from within the loop's thread before the loop starts running. This method can be used to perform any setup that must be done within the context of the loop's thread.
+
+#### on_thread_stop
+
+The `on_thread_stop` callback is invoked from within the loop's thread after the loop has stopped running. This method can be used to perform any cleanup that must be done within the context of the loop's thread.
+
+Example:
+
+```python
+def thread_name():
+    return threading.current_thread().name
+
+class MyLoop(SuperLoop):
+    def on_start(self):
+        print(f'on_start - {thread_name()}')
+        # Perform any necessary setup here
+        return True  # Return False to prevent the loop from starting
+    
+    def on_stop(self):
+        print(f'on_stop - {thread_name()}')
+        # Perform any necessary cleanup here
+
+    def on_thread_start(self):
+        print(f'on_thread_start - {thread_name()}')
+        # Perform any necessary setup here
+
+    def on_thread_stop(self):
+        print(f'on_thread_stop - {thread_name()}')
+        # Perform any necessary cleanup here
+    
+    def cycle(self):
+        pass
+
+loop = MyLoop()
+
+loop.start()
+# on_start - MainThread
+# on_thread_start - MyLoop_0
+loop.stop()
+# on_stop - MainThread
+# on_thread_stop - MyLoop_0
+
+```
+
+
+
 
 ## Licence
 
