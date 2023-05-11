@@ -1,7 +1,7 @@
 import logging
 import time
 import unittest
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, Mock
 
 from superloops import GreenLight, SuperLoop, LoopController
 
@@ -352,6 +352,26 @@ class TestSuperLoopSelfStop(unittest.TestCase):
             self.assertEqual("TestSuperLoopSelfStop.CustomLoop_0: Stopping", cm.records[1].msg)
             self.assertEqual("Cannot stop TestSuperLoopSelfStop.CustomLoop_0 from within itself.", cm.records[2].msg)
 
+class TestLoopControllerMocks(unittest.TestCase):
+
+    def setUp(self):
+        self.loop_controller = LoopController(None)
+        self.loop1 = Mock(spec=SuperLoop)
+        self.loop2 = Mock(spec=SuperLoop)
+        type(self.loop1).is_alive = PropertyMock(return_value=False)
+        type(self.loop2).is_alive = PropertyMock(return_value=False)
+        self.loop_controller.new_loop(self.loop1)
+        self.loop_controller.new_loop(self.loop2)
+
+    def test_maintain_loops(self):
+        self.loop_controller.maintain_loops()
+        self.loop1.start.assert_called_once()
+        self.loop2.start.assert_called_once()
+
+    def test_stop_loops(self):
+        self.loop_controller.stop_loops()
+        self.loop1.stop.assert_called_once()
+        self.loop2.stop.assert_called_once()
 
 class TestIntegration(unittest.TestCase):
 

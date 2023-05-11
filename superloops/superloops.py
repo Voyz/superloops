@@ -288,11 +288,19 @@ class LoopController(SuperLoop):
         except Exception as e:
             _LOGGER.exception(f'Exception maintaining {loop}~~: {e}')
 
+    def maintain_loops(self):
+        for loop in self.loops:
+            self.maintain_loop(loop)
+
     def stop_loop(self, loop:SuperLoop):
         try:
             loop.stop()
         except Exception as e:
             _LOGGER.exception(f'Exception stopping {loop}~~: {e}')
+
+    def stop_loops(self):
+        for loop in self.loops:
+            self.stop_loop(loop)
 
 
 
