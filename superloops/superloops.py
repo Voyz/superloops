@@ -201,6 +201,9 @@ class SuperLoop(ABC):
     def thread_name(self) -> str:
         return self._thread.name if self._thread is not None else str(self)
 
+    def set_green_light(self, green_light:GreenLight):
+        self._green_light = green_light
+
     def __str__(self):
         return f'{self.__class__.__qualname__}'
 
@@ -217,16 +220,19 @@ class LoopController(SuperLoop):
 
     Example:
         loop_controller = LoopController()
-        my_super_loop = MySuperLoop()
-        loop_controller.new_loop(my_super_loop)
+        my_super_loop = loop_controller.new_loop(MySuperLoop())
 
         loop_controller.start()
     """
-    def __init__(self, reset_callback:callable, *args, **kwargs):
+    def __init__(self, reset_callback:callable, green_light:GreenLight=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._green_light = GreenLight()
-        self._green_light.set()
+        self._green_light = green_light
+
+        if self._green_light is None:
+            self._green_light = GreenLight()
+            self._green_light.set()
+
         self.loops = []
         self._reset_callback = reset_callback
 
@@ -234,8 +240,10 @@ class LoopController(SuperLoop):
     def green_light(self): # pragma: no cover
         return self._green_light
 
-    def new_loop(self, loop:SuperLoop):
+    def new_loop(self, loop:SuperLoop, use_green_light:bool=True):
         self.loops.append(loop)
+        if use_green_light is True:
+            loop.set_green_light(self.green_light)
         return loop
 
     def _reset(self):
