@@ -187,11 +187,32 @@ loop.start()
 loop.stop()
 # on_stop - MainThread
 # on_thread_stop - MyLoop_0
-
 ```
 
+## Loop Controller
+
+SuperLoops are built with the intent of being able to link multiple threads into a single co-dependant system. If one thread in such system fails, all threads can be restarted allowing for an easy way to ensure multiple sub-systems can recover from a failure.
+
+This is executed by adding various SuperLoops to a LoopController class, calling the `LoopController.new_loop()` method, passing the SuperLoop as the argument.
 
 
+LoopController needs to be started, which will launch a separate thread observing for the health status of all the threads.
+
+```python
+loop_controller = LoopController()
+
+process_loop = loop_controller.new_loop(ProcessLoop())
+api_feed_loop = loop_controller.new_loop(ApiFeedLoop())
+
+loop_controller.start()
+```
+
+For convenience, LoopController can also ensure that all its SuperLoops are started, by calling `maintain_loops`, or stopped by calling `stop_loops`.
+
+```python
+loop_controller.maintain_loops()
+loop_controller.stop_loops()
+```
 
 ## Licence
 
