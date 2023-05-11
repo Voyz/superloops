@@ -92,9 +92,46 @@ Each time you restart a SuperLoop, it will create a new Thread, handling naming 
 
 Aided by the LoopController class, the SuperLoops are able to communicate their health between each other. This ensures that should one SuperLoop fail and need restarting, all other connected SuperLoops would be restarted too.
 
+## Usage
+
+To use a SuperLoop, declare a class inheriting from SuperLoop and extend the `cycle` method
+```python
+from superloops import SuperLoop
+
+class MyLoop(SuperLoop):
+    def cycle(self):
+        pass
+        # process stuff
+
+loop = MyLoop()
+```
+
+You can use the following methods of SuperLoop to control the thread lifecycle.
+
+```python
+loop.start()
+loop.stop()
+loop.hard_reset()
+loop.failure()
+```
+
+#### `start()`
+Start a new thread (unless one is already started) that will be used to operate the loop. This will start calling the overridden `cycle()` method indefinitely on the new thread. Any arguments passed to this method will be passed to the `on_start` callback.
+
+#### `stop()`
+Stop the existing thread (unless there isn't one started) and join the thread, waiting up to the amount of seconds specified by the `grace_period` argument of this class. Any arguments passed to this method will be passed to the `on_stop` callback.
+
+#### `hard_reset()`
+Stop the thread by calling `stop()` method and mark it as killed, attempting to gracefully finish as soon as the control is returned from the `cycle()` method. Independently of whether the current thread stops gracefully, a new thread will be instantly started.
+
+#### `failure()`
+Indicate that there has been a critical failure in the operation of the thread. If the amount of failures exceeds `max_loop_failures` specified as the argument of this class, the thread will stop and (if provided) unset its GreenLight. 
+
+That indicates that the health status should be propagated across other threads managed through the LoopController that this loop belongs to, and that all specified threads should be restarted.
+
 ## Events
 
-SuperLoop provides lifecycle events that provide flexibility in managing the loop and its thread.
+SuperLoop provides lifecycle event callbacks that facilitate flexibility in managing the loop and its thread.
 
 #### on_start
 
