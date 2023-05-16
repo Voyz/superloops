@@ -23,6 +23,13 @@ pip install superloops
 
 SuperLoops package simplifies and augments usage of Python threads.
 
+Features:
+
+* Startup, shutdown, hard reset
+* Thread events
+* Co-dependant thread health propagation
+
+
 ```python
 class ProcessLoop(SuperLoop):
     def cycle(self):
@@ -30,10 +37,10 @@ class ProcessLoop(SuperLoop):
 
 loop = ProcessLoop()
 loop.start()
-# ProcessLoop0: Started 
+# ProcessLoop_0: Started 
 
 loop.stop()
-# ProcessLoop0: Exited gracefully
+# ProcessLoop_0: Exited gracefully
 
 loop.hard_reset() # when nothing else helps 😬 
 ```
@@ -63,21 +70,21 @@ process_loop = loop_controller.new_loop(ProcessLoop())
 api_feed_loop = loop_controller.new_loop(ApiFeedLoop())
 
 loop_controller.start()
-# LoopController0: Started
+# LoopController_0: Started
 
 loop_controller.maintain_loops()
-# ProcessLoop0: Started
-# ApiFeedLoop0: Started
+# ProcessLoop_0: Started
+# ApiFeedLoop_0: Started
 
 api_feed_loop.failure() # oops!
 
-# LoopController0: Stopping loops.
-# ProcessLoop0: Exited gracefully
-# ApiFeedLoop0: Exited gracefully
+# LoopController_0: Stopping loops.
+# ProcessLoop_0: Exited gracefully
+# ApiFeedLoop_0: Exited gracefully
 
-# LoopController0: Restarting loops.
-# ProcessLoop1: Started
-# ApiFeedLoop1: Started
+# LoopController_0: Restarting loops.
+# ProcessLoop_1: Started
+# ApiFeedLoop_1: Started
 ```
 
 
@@ -213,6 +220,10 @@ For convenience, LoopController can also ensure that all its SuperLoops are star
 loop_controller.maintain_loops()
 loop_controller.stop_loops()
 ```
+
+## Examples
+
+See [Usage examples](https://github.com/Voyz/superloops/tree/master/bin/examples) for more.
 
 ## Licence
 
