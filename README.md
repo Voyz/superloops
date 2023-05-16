@@ -28,7 +28,8 @@ Features:
 * Startup, shutdown, hard reset
 * Thread events
 * Co-dependant thread health propagation
-
+* 0 dependencies
+* 100% automated test coverage
 
 ```python
 class ProcessLoop(SuperLoop):
