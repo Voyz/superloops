@@ -138,7 +138,7 @@ That indicates that the health status should be propagated across other threads 
 
 ### SuperLoop arguments
 
-* `green_light` (`threading.Event`): A `threading.Event` object representing the health state of the loop. If not provided, this loop will not propagate its health status to other loops.
+* `green_light` (`threading.Event`): A `threading.Event` object representing the health state of the loop. It gets set automatically when a loop is added to LoopController.
 * `grace_period` (`int`): The number of seconds to wait when stopping the loop gracefully. Default is 5 seconds.
 * `max_loop_failures` (`int`): The maximum number of failures allowed before reporting issues. Default is 10 failures.
 * `stop_on_failure` (`bool`): A flag that indicates if this loop should be stopped when it exceeds its `max_loop_failures`. Default is `False`.
@@ -229,7 +229,7 @@ loop_controller.maintain_loops()
 loop_controller.stop_loops()
 ```
 
-### LoopController constructor arguments
+### LoopController arguments
 * `reset_callback` (`callable`): A callable to be executed when the `LoopController` resets loops.
 * `green_light` (`threading.Event`): A `threading.Event` that will be used to control the health status of the loops. Creates one if not provided.
 
