@@ -99,7 +99,8 @@ Each time you restart a SuperLoop, it will create a new Thread, handling naming 
 
 Aided by the LoopController class, the SuperLoops are able to communicate their health between each other. This ensures that should one SuperLoop fail and need restarting, all other connected SuperLoops would be restarted too.
 
-## Usage
+## Documentation 
+
 
 To use a SuperLoop, declare a class inheriting from SuperLoop and extend the `cycle` method
 ```python
@@ -136,7 +137,7 @@ Indicate that there has been a critical failure in the operation of the thread. 
 
 That indicates that the health status should be propagated across other threads managed through the LoopController that this loop belongs to, and that all specified threads should be restarted.
 
-### SuperLoop arguments
+#### SuperLoop arguments
 
 * `green_light` (`threading.Event`): A `threading.Event` object representing the health state of the loop. It gets set automatically when a loop is added to LoopController.
 * `grace_period` (`int`): The number of seconds to wait when stopping the loop gracefully. Default is 5 seconds.
@@ -144,13 +145,13 @@ That indicates that the health status should be propagated across other threads 
 * `stop_on_failure` (`bool`): A flag that indicates if this loop should be stopped when it exceeds its `max_loop_failures`. Default is `False`.
 * `reset_globally` (`bool`): A flag that indicates if this loop should be reset when other loops report issues. Default is `True`.
 
-## Events
+### Events
 
 SuperLoop provides lifecycle event callbacks that facilitate flexibility in managing the loop and its thread.
 
 #### on_start
 
-The `on_start` callback is invoked before a new thread is created and started. It can be used to perform any setup that is required before the loop starts running. 
+The `on_start` callback is invoked before a new thread is created and started. It can be used to perform any setup that is required before the loop starts running.
 
 This method must return a boolean indicating whether the loop should continue starting.
 
@@ -204,7 +205,7 @@ loop.stop()
 # on_thread_stop - MyLoop_0
 ```
 
-## Loop Controller
+### Loop Controller
 
 SuperLoops are built with the intent of being able to link multiple threads into a single co-dependant system. If one thread in such system fails, all threads can be restarted allowing for an easy way to ensure multiple sub-systems can recover from a failure.
 
@@ -229,7 +230,7 @@ loop_controller.maintain_loops()
 loop_controller.stop_loops()
 ```
 
-### LoopController arguments
+#### LoopController arguments
 * `reset_callback` (`callable`): A callable to be executed when the `LoopController` resets loops.
 * `green_light` (`threading.Event`): A `threading.Event` that will be used to control the health status of the loops. Creates one if not provided.
 
@@ -241,7 +242,7 @@ See [Usage examples](https://github.com/Voyz/superloops/tree/master/bin/examples
 
 See [LICENSE](https://github.com/Voyz/superloops/blob/master/LICENSE)
 
-# Disclaimer
+## Disclaimer
 
 SuperLoops is provided on an AS IS and AS AVAILABLE basis without any representation or endorsement made and without warranty of any kind whether express or implied, including but not limited to the implied warranties of satisfactory quality, fitness for a particular purpose, non-infringement, compatibility, security and accuracy. To the extent permitted by law, SuperLoops' authors will not be liable for any indirect or consequential loss or damage whatever (including without limitation loss of business, opportunity, data, profits) arising out of or in connection with the use of SuperLoops. SuperLoops' authors make no warranty that the functionality of SuperLoops will be uninterrupted or error free, that defects will be corrected or that SuperLoops or the server that makes it available are free of viruses or anything else which may be harmful
 or destructive.
