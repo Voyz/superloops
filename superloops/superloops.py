@@ -31,7 +31,7 @@ class SuperLoop(ABC):
     * on_thread_stop - Called from within the thread after stopping the loop.
 
     Attributes:
-        green_light (threading.Event): A threading.Event object representing the healthy state of the loop. If not provided, this loop cannot propagate its health status to other loops.
+        green_light (threading.Event): A threading.Event object representing the health state of the loop. If not provided, this loop will not propagate its health status to other loops.
         grace_period (int): The number of seconds to wait when stopping the loop gracefully. Default is 5 seconds.
         max_loop_failures (int): The maximum number of failures allowed before reporting issues. Default is 10 failures.
         stop_on_failure (bool): A flag that indicates if this loop should be stopped when it exceeds its max_loop_failures. Default is False.
@@ -222,7 +222,8 @@ class LoopController(SuperLoop):
     All loops managed by one LoopController are bundled together using one GreenLight Event. When set, it indicates all loops are healthy. When unset, it indicates that a reset is necessary. All loops that have 'reset_globally' set to True will be reset upon observing an unhealthy state of the system (represented by an unset GreenLight Event).
 
     Attributes:
-        reset_callback (callable): A callable to be executed when the LoopController is reset.
+        reset_callback (callable): A callable to be executed when the LoopController resets loops.
+        green_light (threading.Event): A threading.Event that will be used to control the health status of the loops. Creates one if not provided.
 
     Example:
         loop_controller = LoopController()
