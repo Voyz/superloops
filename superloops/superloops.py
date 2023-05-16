@@ -34,6 +34,7 @@ class SuperLoop(ABC):
         green_light (threading.Event): A threading.Event object representing the healthy state of the loop. If not provided, this loop cannot propagate its health status to other loops.
         grace_period (int): The number of seconds to wait when stopping the loop gracefully. Default is 5 seconds.
         max_loop_failures (int): The maximum number of failures allowed before reporting issues. Default is 10 failures.
+        stop_on_failure (bool): A flag that indicates if this loop should be stopped when it exceeds its max_loop_failures. Default is False.
         reset_globally (bool): A flag that indicates if this loop should be reset when other loops report issues. Default is True.
 
     Example:
@@ -48,7 +49,9 @@ class SuperLoop(ABC):
                      green_light:threading.Event=None,
                      grace_period:int=5,
                      max_loop_failures:int=10,
-                     reset_globally:bool=True):
+                     stop_on_failure:bool=False,
+                     reset_globally:bool=True,
+                 ):
 
             self._running = False
             self._thread = None
@@ -60,6 +63,7 @@ class SuperLoop(ABC):
             self._green_light = green_light
             self._grace_period = grace_period
             self._max_loop_failures = max_loop_failures
+            self._stop_on_failure = stop_on_failure
             self.reset_globally = reset_globally
 
     @abstractmethod
@@ -144,10 +148,10 @@ class SuperLoop(ABC):
                 try:
                     self.on_stop(*args, **kwargs)
                 except Exception as e:
-                    _LOGGER.exception(f'Exception running on_start of {self}: {e}')
+                    _LOGGER.exception(f'Exception running on_stop of {self}: {e}')
 
                 if threading.current_thread() == self._thread:
-                    _LOGGER.info(f'Cannot stop {threading.current_thread().name} from within itself.')
+                    _LOGGER.info(f'Cannot join thread "{threading.current_thread().name}" from within itself.')
                 else:
                     if self._thread is not None:
                         self._thread.join(timeout=self._grace_period)
@@ -178,7 +182,9 @@ class SuperLoop(ABC):
             _LOGGER.info(
                 f'{str(self)}: Exceeded maximum number of failures ({self._failures}/{self._max_loop_failures}), terminating.')
             self._failures = 0
-            self.stop()
+
+            if self._stop_on_failure:
+                self.stop()
             if self._green_light is not None:
                 self._green_light.clear()
             return True
@@ -224,7 +230,7 @@ class LoopController(SuperLoop):
 
         loop_controller.start()
     """
-    def __init__(self, reset_callback:callable, green_light:GreenLight=None, *args, **kwargs):
+    def __init__(self, reset_callback:callable=None, green_light:GreenLight=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._green_light = green_light

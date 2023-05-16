@@ -96,7 +96,7 @@ class TestSuperLoop(unittest.TestCase):
             self.loop.start()
             self.loop.stop()
 
-        expected_log = "Exception running on_start of TestSuperLoop.CustomLoop: Test on_stop exception"
+        expected_log = "Exception running on_stop of TestSuperLoop.CustomLoop: Test on_stop exception"
         self.assertEqual(expected_log, cm.records[0].msg)
 
     def test_on_thread_start_exception(self):
@@ -166,7 +166,16 @@ class TestSuperLoop(unittest.TestCase):
             self.assertFalse(self.loop.failure())
         self.assertEqual(self.loop._failures, 2)
 
+    def test_failure_exceed_max_failures(self):
+        self.loop._max_loop_failures = 3
+        self.loop.stop = MagicMock()
+        for i in range(4):
+            self.loop.failure()
+        self.loop.stop.assert_not_called()
+        self.assertEqual(self.loop._failures, 0)
+
     def test_failure_exceed_max_failures_stop(self):
+        self.loop._stop_on_failure = True
         self.loop._max_loop_failures = 3
         self.loop.stop = MagicMock()
         for i in range(4):
@@ -175,6 +184,7 @@ class TestSuperLoop(unittest.TestCase):
         self.assertEqual(self.loop._failures, 0)
 
     def test_failure_exceed_max_failures_stop_clear_green_light(self):
+        self.loop._stop_on_failure = True
         self.loop._max_loop_failures = 3
         self.loop.stop = MagicMock()
         for i in range(4):
@@ -350,7 +360,7 @@ class TestSuperLoopSelfStop(unittest.TestCase):
             time.sleep(0.1)
             self.assertEqual("TestSuperLoopSelfStop.CustomLoop_0: Started", cm.records[0].msg)
             self.assertEqual("TestSuperLoopSelfStop.CustomLoop_0: Stopping", cm.records[1].msg)
-            self.assertEqual("Cannot stop TestSuperLoopSelfStop.CustomLoop_0 from within itself.", cm.records[2].msg)
+            self.assertEqual('Cannot join thread "TestSuperLoopSelfStop.CustomLoop_0" from within itself.', cm.records[2].msg)
 
 class TestLoopControllerMocks(unittest.TestCase):
 
@@ -374,8 +384,11 @@ class TestLoopControllerMocks(unittest.TestCase):
         self.loop2.stop.assert_called_once()
 
 class TestIntegration(unittest.TestCase):
+    class GoodLoop(SuperLoop):
+        def cycle(self):
+            time.sleep(0.1)
 
-    class CustomLoop(SuperLoop):
+    class BadLoop(SuperLoop):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.counter = 0
@@ -383,7 +396,6 @@ class TestIntegration(unittest.TestCase):
         def cycle(self):
             if self.counter >= 3:
                 self.failure()
-            # time.sleep(0.1)
             self.counter += 1
 
         def on_start(self):
@@ -399,8 +411,8 @@ class TestIntegration(unittest.TestCase):
 
         green_light = loop_controller.green_light
 
-        loop1 = self.CustomLoop(green_light=green_light, max_loop_failures=2)
-        loop2 = self.CustomLoop(green_light=green_light)
+        loop1 = self.BadLoop(green_light=green_light, max_loop_failures=2)
+        loop2 = self.GoodLoop(green_light=green_light)
 
         loop_controller.new_loop(loop1)
         loop_controller.new_loop(loop2)
@@ -414,6 +426,9 @@ class TestIntegration(unittest.TestCase):
 
         # Give some time for the loops to exceed the failure limit
         while not self.called_reset_callback:
+            time.sleep(0.1)
+
+        while not loop_controller.green_light.is_set():
             time.sleep(0.1)
 
         # Check if the reset_callback was called
