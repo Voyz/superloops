@@ -2,18 +2,19 @@ import logging
 import threading
 from abc import abstractmethod, ABC
 
-_LOGGER = logging.getLogger('superloops')
-
+_LOGGER = logging.getLogger(__name__)
 
 class GreenLight(threading.Event):
-    """ Indicates 'healthy' state amongst all loops managed by the LoopController. """
+    """Indicates 'healthy' state amongst all loops managed by the LoopController."""
 
     def clear(self):
+        name = threading.current_thread().name
         if not self.is_set():
-            _LOGGER.debug(f'GreenLight: Reset from {threading.current_thread().name} ignored, already resetting.')
+            _LOGGER.debug("GreenLight: Reset from %s ignored, already resetting.", name)
         else:
-            _LOGGER.debug(f'GreenLight: Reset initialised from {threading.current_thread().name}.')
+            _LOGGER.debug("GreenLight: Reset initialised from %s.", name)
             super().clear()
+
 
 class SuperLoop(ABC):
     """
@@ -44,51 +45,50 @@ class SuperLoop(ABC):
                 pass
     """
 
+    def __init__(
+        self,
+        green_light: threading.Event = None,
+        grace_period: int = 5,
+        max_loop_failures: int = 10,
+        stop_on_failure: bool = False,
+        reset_globally: bool = True,
+    ):
+        self._running = False
+        self._thread = None
+        self._failures = 0
+        self._killed_thread = {}
+        self._thread_index = 0
+        self._operational_lock = threading.Lock()
 
-    def __init__(self,
-                     green_light:threading.Event=None,
-                     grace_period:int=5,
-                     max_loop_failures:int=10,
-                     stop_on_failure:bool=False,
-                     reset_globally:bool=True,
-                 ):
-
-            self._running = False
-            self._thread = None
-            self._failures = 0
-            self._killed_thread = {}
-            self._thread_index = 0
-            self._operational_lock = threading.Lock()
-
-            self._green_light = green_light
-            self._grace_period = grace_period
-            self._max_loop_failures = max_loop_failures
-            self._stop_on_failure = stop_on_failure
-            self.reset_globally = reset_globally
+        self._green_light = green_light
+        self._grace_period = grace_period
+        self._max_loop_failures = max_loop_failures
+        self._stop_on_failure = stop_on_failure
+        self.reset_globally = reset_globally
 
     @abstractmethod
-    def cycle(self): # pragma: no cover
+    def cycle(self):  # pragma: no cover
         raise NotImplementedError()
 
     def on_start(self, *args, **kwargs) -> bool:
-        """ Called before new thread is created and started. Must return a boolean indicating whether loop should continue starting. """
+        """Called before new thread is created and started. Must return a boolean indicating whether loop should continue starting."""
         return True
 
     def on_stop(self, *args, **kwargs):
-        """ Called after the thread is stopped. """
+        """Called after the thread is stopped."""
         pass
 
     def on_thread_start(self):
-        """ Called from within the thread before starting the loop. """
+        """Called from within the thread before starting the loop."""
         pass
 
     def on_thread_stop(self):
-        """ Called from within the thread after stopping the loop. """
+        """Called from within the thread after stopping the loop."""
         pass
 
     def start(self, *args, **kwargs):
         with self._operational_lock:
-            if self.is_alive or self._running: # we can only start if not currently running
+            if self.is_alive or self._running:  # we can only start if not currently running
                 return
 
             self._running = True
@@ -96,11 +96,11 @@ class SuperLoop(ABC):
             try:
                 continue_starting = self.on_start(*args, **kwargs)
             except Exception as e:
-                _LOGGER.exception(f'Exception running on_start of {self}: {e}')
+                _LOGGER.exception("Exception running on_start of %s: %s", self, e)
                 continue_starting = True
 
             if not continue_starting:
-                _LOGGER.info(f'{self} on_start returned False, stopping')
+                _LOGGER.info("%s on_start returned False, stopping", self)
                 self._running = False
                 return
 
@@ -109,19 +109,17 @@ class SuperLoop(ABC):
     def _start_new_thread(self):
         name = self.make_name(self._thread_index)
         self._thread_index += 1
-        self._thread = threading.Thread(
-            target=self._start_thread, name=name, args=(name,)
-        )
+        self._thread = threading.Thread(target=self._start_thread, name=name, args=(name,))
         self._thread.daemon = True
         self._thread.start()
 
-    def _start_thread(self, thread_name:str):
-        _LOGGER.info(f'{thread_name}: Started')
+    def _start_thread(self, thread_name: str):
+        _LOGGER.info("%s: Started", thread_name)
 
         try:
             self.on_thread_start()
         except Exception as e:
-            _LOGGER.exception(f'{thread_name}: Exception during on_thread_start, exiting: {e}')
+            _LOGGER.exception("%s: Exception during on_thread_start, exiting: %s", thread_name, e)
             return
 
         self._loop(thread_name)
@@ -129,29 +127,35 @@ class SuperLoop(ABC):
         try:
             self.on_thread_stop()
         except Exception as e:
-            _LOGGER.exception(f'{thread_name}: Exception during shutdown on_thread_stop: {e}')
+            _LOGGER.exception(f"%s: Exception during shutdown on_thread_stop: %s", thread_name, e)
 
-        _LOGGER.info(f'{thread_name}: Exited gracefully, running={self._running}, killed={self._killed_thread.get(thread_name, False)}')
+        _LOGGER.info(
+            f"%s: Exited gracefully, running=%s, killed=%s",
+            thread_name,
+            self._running,
+            self._killed_thread.get(thread_name, False)
+            )
 
-    def _loop(self, thread_name:str):
+    def _loop(self, thread_name: str):
         while self._running and not self._killed_thread.get(thread_name, False):
             self.cycle()
 
     def stop(self, *args, **kwargs) -> bool:
-        """ Attempt to stop the thread, waiting up to 'grace_period' seconds for it to stop. """
+        """Attempt to stop the thread, waiting up to 'grace_period' seconds for it to stop."""
 
         if self._thread is not None:
             with self._operational_lock:
-                _LOGGER.info(f'{self.thread_name}: Stopping')
+                _LOGGER.info("%s: Stopping", self.thread_name)
                 self._running = False
 
                 try:
                     self.on_stop(*args, **kwargs)
                 except Exception as e:
-                    _LOGGER.exception(f'Exception running on_stop of {self}: {e}')
+                    _LOGGER.exception("Exception running on_stop of %s: %s", self, e)
 
-                if threading.current_thread() == self._thread:
-                    _LOGGER.info(f'Cannot join thread "{threading.current_thread().name}" from within itself.')
+                current_thread = threading.current_thread()
+                if current_thread == self._thread:
+                    _LOGGER.info('Cannot join thread "%s" from within itself.', current_thread.name)
                 else:
                     if self._thread is not None:
                         self._thread.join(timeout=self._grace_period)
@@ -162,25 +166,29 @@ class SuperLoop(ABC):
 
     def hard_reset(self):
         if self._thread is not None:
-            name = self.make_name(self._thread_index-1)
-            _LOGGER.info(f'{self.thread_name}: Hard reset')
+            name = self.make_name(self._thread_index - 1)
+            _LOGGER.info(f"{self.thread_name}: Hard reset")
             stopped = self.stop()
             with self._operational_lock:
                 self._killed_thread[name] = True
                 if not stopped:
-                    _LOGGER.info(f'{self.thread_name} Unable to stop')
+                    _LOGGER.info("%s Unable to stop", self.thread_name)
 
             self._running = True
             self._start_new_thread()
 
     def failure(self):
-        """ Allows to mark the thread's state as non-healthy. If this happens more times than 'max_loop_failures', the loop will attempt to stop its thread, and propagate the information about lack of health to other threads through the LoopController, which should cause all threads to reset. """
+        """Allows to mark the thread's state as non-healthy. If this happens more times than 'max_loop_failures', the loop will attempt to stop its thread, and propagate the information about lack of health to other threads through the LoopController, which should cause all threads to reset."""
 
         self._failures += 1
 
         if self._failures > self._max_loop_failures:
-            _LOGGER.info(
-                f'{str(self)}: Exceeded maximum number of failures ({self._failures}/{self._max_loop_failures}), terminating.')
+            _LOGGER.error(
+                "%s: Exceeded maximum number of failures (%s/%s), terminating.",
+                str(self),
+                self._failures,
+                self._max_loop_failures,
+            )
             self._failures = 0
 
             if self._stop_on_failure:
@@ -200,19 +208,18 @@ class SuperLoop(ABC):
         """Returns True if the loop is running."""
         return self._running
 
-    def make_name(self, thread_index:int):
-        return f'{self.__class__.__qualname__}_{thread_index}'
+    def make_name(self, thread_index: int):
+        return f"{self.__class__.__qualname__}_{thread_index}"
 
     @property
     def thread_name(self) -> str:
         return self._thread.name if self._thread is not None else str(self)
 
-    def set_green_light(self, green_light:GreenLight):
+    def set_green_light(self, green_light: GreenLight):
         self._green_light = green_light
 
     def __str__(self):
-        return f'{self.__class__.__qualname__}'
-
+        return f"{self.__class__.__qualname__}"
 
 
 class LoopController(SuperLoop):
@@ -231,7 +238,8 @@ class LoopController(SuperLoop):
 
         loop_controller.start()
     """
-    def __init__(self, reset_callback:callable=None, green_light:GreenLight=None, *args, **kwargs):
+
+    def __init__(self, reset_callback: callable = None, green_light: GreenLight = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._green_light = green_light
@@ -244,32 +252,31 @@ class LoopController(SuperLoop):
         self._reset_callback = reset_callback
 
     @property
-    def green_light(self): # pragma: no cover
+    def green_light(self):  # pragma: no cover
         return self._green_light
 
-    def new_loop(self, loop:SuperLoop, use_green_light:bool=True):
+    def new_loop(self, loop: SuperLoop, use_green_light: bool = True):
         self.loops.append(loop)
         if use_green_light is True:
             loop.set_green_light(self.green_light)
         return loop
 
     def _reset(self):
-        _LOGGER.info(f'{self}: Stopping loops')
+        _LOGGER.info("%s: Stopping loops", self)
 
         for loop in self.loops:
             if loop.reset_globally:
                 loop.stop()
 
-        _LOGGER.info(f'{self}: Resetting')
+        _LOGGER.info("%s: Resetting", self)
 
         if self._reset_callback is not None and callable(self._reset_callback):
             try:
                 self._reset_callback()
             except Exception as e:
-                _LOGGER.exception(f'Exception during reset_callback: {e}')
+                _LOGGER.exception("Exception during reset_callback: %s", e)
 
-
-        _LOGGER.info(f'{self}: Restarting loops')
+        _LOGGER.info("%s: Restarting loops", self)
         for loop in self.loops:
             if loop.reset_globally:
                 if loop.is_alive or loop.running:
@@ -278,38 +285,34 @@ class LoopController(SuperLoop):
                     loop.start()
 
         self._green_light.set()
-        _LOGGER.info(f'{self}: Restart completed')
-
+        _LOGGER.info(f"{self}: Restart completed")
 
     def cycle(self):
         if not self._green_light.is_set():
-            _LOGGER.info(f'{self}: green light is not set, resetting.')
+            _LOGGER.info("%s: green light is not set, resetting.", self)
             self._reset()
 
-
-    def maintain_loop(self, loop:SuperLoop):
+    def maintain_loop(self, loop: SuperLoop):
         try:
             if not loop.is_alive:
-                _LOGGER.debug(f"{loop} is stopped, attempting to start")
+                _LOGGER.debug("%s is stopped, attempting to start", loop)
                 loop.start()
         except Exception as e:
-            _LOGGER.exception(f'Exception maintaining {loop}~~: {e}')
+            _LOGGER.exception("Exception maintaining %s~~: %s", loop, e)
 
     def maintain_loops(self):
         for loop in self.loops:
             self.maintain_loop(loop)
 
-    def stop_loop(self, loop:SuperLoop):
+    def stop_loop(self, loop: SuperLoop):
         try:
             loop.stop()
         except Exception as e:
-            _LOGGER.exception(f'Exception stopping {loop}~~: {e}')
+            _LOGGER.exception("Exception stopping %s~~: %s", loop, e)
 
     def stop_loops(self):
         for loop in self.loops:
             self.stop_loop(loop)
-
-
 
     def __str__(self):
         return f"{self.__class__.__qualname__}"

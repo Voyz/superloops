@@ -5,9 +5,10 @@ from superloops import SuperLoop
 
 class ProcessLoop(SuperLoop):
     def cycle(self):
-        print(f'Processing...')
+        print(f"Processing...")
         time.sleep(1)
         # process stuff in a separate thread
+
 
 loop = ProcessLoop()
 loop.start()

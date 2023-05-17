@@ -5,11 +5,12 @@ from unittest.mock import MagicMock
 
 from superloops import SuperLoop
 
-logging.basicConfig(level = logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 Api = MagicMock()
-Api.return_value.get_feed = MagicMock(side_effect=lambda: random.randint(1,100))
-my_key = 'SECRET_KEY'
+Api.return_value.get_feed = MagicMock(side_effect=lambda: random.randint(1, 100))
+my_key = "SECRET_KEY"
+
 
 class ApiFeedLoop(SuperLoop):
     def on_start(self):
@@ -21,7 +22,7 @@ class ApiFeedLoop(SuperLoop):
 
     def cycle(self):
         feed = self.api.get_feed()
-        print(f'Api feed: {feed}')
+        print(f"Api feed: {feed}")
         time.sleep(1)
 
 
