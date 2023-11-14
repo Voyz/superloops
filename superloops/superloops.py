@@ -1,6 +1,7 @@
 import logging
 import threading
 from abc import abstractmethod, ABC
+from typing import Type
 
 _LOGGER = logging.getLogger('superloops')
 
@@ -46,25 +47,25 @@ class SuperLoop(ABC):
 
 
     def __init__(self,
-                     green_light:threading.Event=None,
-                     grace_period:int=5,
-                     max_loop_failures:int=10,
-                     stop_on_failure:bool=False,
-                     reset_globally:bool=True,
+                 green_light:threading.Event=None,
+                 grace_period:int=5,
+                 max_loop_failures:int=10,
+                 stop_on_failure:bool=False,
+                 reset_globally:bool=True,
                  ):
 
-            self._running = False
-            self._thread = None
-            self._failures = 0
-            self._killed_thread = {}
-            self._thread_index = 0
-            self._operational_lock = threading.Lock()
+        self._running = False
+        self._thread = None
+        self._failures = 0
+        self._killed_thread = {}
+        self._thread_index = 0
+        self._operational_lock = threading.Lock()
 
-            self._green_light = green_light
-            self._grace_period = grace_period
-            self._max_loop_failures = max_loop_failures
-            self._stop_on_failure = stop_on_failure
-            self.reset_globally = reset_globally
+        self._green_light = green_light
+        self._grace_period = grace_period
+        self._max_loop_failures = max_loop_failures
+        self._stop_on_failure = stop_on_failure
+        self.reset_globally = reset_globally
 
     @abstractmethod
     def cycle(self): # pragma: no cover
@@ -233,7 +234,11 @@ class LoopController(SuperLoop):
 
         loop_controller.start()
     """
-    def __init__(self, reset_callback:callable=None, green_light:GreenLight=None, *args, **kwargs):
+    def __init__(self,
+                 reset_callback:callable=None,
+                 green_light:GreenLight=None,
+                 loop_factory:callable=None,
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._green_light = green_light
@@ -244,6 +249,7 @@ class LoopController(SuperLoop):
 
         self.loops = []
         self._reset_callback = reset_callback
+        self._loop_factory = loop_factory
 
     @property
     def green_light(self): # pragma: no cover
@@ -254,6 +260,20 @@ class LoopController(SuperLoop):
         if use_green_light is True:
             loop.set_green_light(self.green_light)
         return loop
+
+    def new_from_factory(self,
+                         klass:Type[SuperLoop],
+                         green_light:threading.Event=None,
+                         grace_period:int=None,
+                         max_loop_failures:int=None,
+                         stop_on_failure:bool=None,
+                         reset_globally:bool=None,
+                         use_green_light:bool=True,
+                         *args,
+                         **kwargs
+                         ):
+        loop = self._loop_factory(klass, green_light, grace_period, max_loop_failures, stop_on_failure, reset_globally, *args, **kwargs)
+        return self.new_loop(loop, use_green_light=use_green_light)
 
     def _reset(self):
         _LOGGER.info(f'{self}: Stopping loops')
@@ -316,6 +336,54 @@ class LoopController(SuperLoop):
     def on_stop(self):
         self.stop_loops()
 
+    @property
+    def has_alive_loops(self) -> bool:
+        for loop in self.loops:
+            if loop.is_alive:
+                return True
+        return False
+
+    def set_loop_factory(self, factory:callable):
+        self._loop_factory = factory
 
     def __str__(self):
         return f"{self.__class__.__qualname__}"
+
+
+def super_loop_factory(
+        green_light:threading.Event=None,
+        grace_period:int=5,
+        max_loop_failures:int=10,
+        stop_on_failure:bool=False,
+        reset_globally:bool=True,
+) -> callable:
+    """
+    Factory function for creating SuperLoop objects.
+    Any of the defined parameters can be overriden when calling the factory itself.
+    """
+    _green_light = green_light
+    _grace_period = grace_period
+    _max_loop_failures = max_loop_failures
+    _stop_on_failure = stop_on_failure
+    _reset_globally = reset_globally
+
+    def factory(klass:Type,
+                green_light:threading.Event=None,
+                grace_period:int=None,
+                max_loop_failures:int=None,
+                stop_on_failure:bool=None,
+                reset_globally:bool=None,
+                *args,
+                **kwargs) -> SuperLoop:
+
+        return klass(
+            green_light=green_light if green_light is not None else _green_light,
+            grace_period=grace_period if grace_period is not None else _grace_period,
+            max_loop_failures=max_loop_failures if max_loop_failures is not None else _max_loop_failures,
+            stop_on_failure=stop_on_failure if stop_on_failure is not None else _stop_on_failure,
+            reset_globally=reset_globally if reset_globally is not None else _reset_globally,
+            *args,
+            **kwargs)
+
+    return factory
+
