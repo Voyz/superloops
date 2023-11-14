@@ -126,6 +126,8 @@ class SuperLoop(ABC):
 
         self._loop(thread_name)
 
+        _LOGGER.info(f'{thread_name}: Stopped, cleaning up.')
+
         try:
             self.on_thread_stop()
         except Exception as e:
