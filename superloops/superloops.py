@@ -313,6 +313,8 @@ class LoopController(SuperLoop):
         for loop in self.loops:
             self.stop_loop(loop)
 
+    def on_stop(self):
+        self.stop_loops()
 
 
     def __str__(self):
