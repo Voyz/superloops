@@ -292,6 +292,8 @@ class LoopController(SuperLoop):
     def maintain_loop(self, loop:SuperLoop):
         try:
             if not loop.is_alive:
+                if loop.running:
+                    loop.stop()
                 _LOGGER.debug(f"{loop} is stopped, attempting to start")
                 loop.start()
         except Exception as e:
