@@ -127,7 +127,7 @@ class SuperLoop(ABC):
 
         self._loop(thread_name)
 
-        _LOGGER.info(f'{thread_name}: Stopped, cleaning up.')
+        _LOGGER.debug(f'{thread_name}: Stopped, cleaning up.')
 
         try:
             self.on_thread_stop()
@@ -336,12 +336,14 @@ class LoopController(SuperLoop):
     def on_stop(self):
         self.stop_loops()
 
-    @property
     def has_alive_loops(self) -> bool:
         for loop in self.loops:
             if loop.is_alive:
                 return True
         return False
+
+    def alive_loops(self) -> [SuperLoop]:
+        return [loop for loop in self.loops if loop.is_alive]
 
     def set_loop_factory(self, factory:callable):
         self._loop_factory = factory
