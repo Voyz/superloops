@@ -1,9 +1,11 @@
 import logging
 import time
 import unittest
+from threading import Event
 from unittest.mock import MagicMock, PropertyMock, Mock
 
-from superloops import GreenLight, SuperLoop, LoopController
+from superloops import GreenLight, SuperLoop, LoopController, super_loop_factory
+
 
 class TestGreenLight(unittest.TestCase):
 
@@ -335,6 +337,35 @@ class TestLoopController(unittest.TestCase):
 
             self.assertEqual("Exception stopping TestLoopController.CustomLoop~~: stop exception", cm.records[0].msg)
 
+
+    def test_new_from_factory(self):
+        loop1 = MagicMock(spec=SuperLoop)
+        mock_factory = MagicMock(return_value=loop1)
+        self.controller.set_loop_factory(mock_factory)
+        created_loop = self.controller.new_from_factory(self.CustomLoop, use_green_light=False)
+
+        mock_factory.assert_called_once_with(self.CustomLoop, None, None, None, None, None)
+        self.assertEqual(created_loop, loop1, "new_from_factory should return the loop created by the factory")
+        loop1.set_green_light.assert_not_called()
+
+    def test_new_from_factory_with_green_light(self):
+        loop1 = MagicMock(spec=SuperLoop)
+        mock_factory = MagicMock(return_value=loop1)
+        self.controller.set_loop_factory(mock_factory)
+        created_loop = self.controller.new_from_factory(self.CustomLoop, use_green_light=True)
+
+        mock_factory.assert_called_once_with(self.CustomLoop, None, None, None, None, None)
+        self.assertEqual(created_loop, loop1, "new_from_factory should return the loop created by the factory")
+        self.assertIn(loop1, self.controller.loops, "The loop should be added to the controller's loop list when use_green_light is True")
+        loop1.set_green_light.assert_called()
+
+
+    def test_set_loop_factory(self):
+        mock_factory = MagicMock()
+        self.controller.set_loop_factory(mock_factory)
+        self.assertEqual(self.controller._loop_factory, mock_factory, "set_loop_factory should set the controller's loop factory to the provided factory")
+
+
 class TestSuperLoopSelfStop(unittest.TestCase):
 
     class CustomLoop(SuperLoop):
@@ -365,41 +396,97 @@ class TestSuperLoopSelfStop(unittest.TestCase):
 class TestLoopControllerMocks(unittest.TestCase):
 
     def setUp(self):
-        self.loop_controller = LoopController(None)
+        self.controller = LoopController(None)
         self.loop1 = Mock(spec=SuperLoop)
         self.loop2 = Mock(spec=SuperLoop)
-        type(self.loop1).is_alive = PropertyMock(return_value=False)
-        type(self.loop2).is_alive = PropertyMock(return_value=False)
-        self.loop_controller.new_loop(self.loop1)
-        self.loop_controller.new_loop(self.loop2)
+        self.loop1.is_alive = False
+        self.loop2.is_alive = False
+        self.controller.new_loop(self.loop1)
+        self.controller.new_loop(self.loop2)
 
     def test_maintain_loops(self):
-        self.loop_controller.maintain_loops()
+        self.controller.maintain_loops()
         self.loop1.start.assert_called_once()
         self.loop2.start.assert_called_once()
 
     def test_stop_loops(self):
-        self.loop_controller.stop_loops()
+        self.controller.stop_loops()
         self.loop1.stop.assert_called_once()
         self.loop2.stop.assert_called_once()
 
-class TestIntegration(unittest.TestCase):
-    class GoodLoop(SuperLoop):
+    def test_has_alive_loops_no_loops_alive(self):
+        self.loop1.is_alive = False
+        self.loop2.is_alive = False
+        self.assertFalse(self.controller.has_alive_loops(), "has_alive_loops should return False when no loops are alive")
+
+    def test_has_alive_loops_with_alive_loops(self):
+        self.loop1.is_alive = True
+        self.loop2.is_alive = False
+        self.assertTrue(self.controller.has_alive_loops(), "has_alive_loops should return True when at least one loop is alive")
+
+    def test_alive_loops_no_loops_alive(self):
+        self.loop1.is_alive = False
+        self.loop2.is_alive = False
+        self.assertEqual([], self.controller.alive_loops(), "alive_loops should return an empty list when no loops are alive")
+
+    def test_alive_loops_with_alive_loops(self):
+        self.loop1.is_alive = True
+        self.loop2.is_alive = False
+        self.assertEqual([self.loop1], self.controller.alive_loops(), "alive_loops should return a list with alive loops")
+
+class TestSuperLoopFactory(unittest.TestCase):
+    class CustomLoop(SuperLoop):
         def cycle(self):
+            pass
+
+    def test_super_loop_factory_default_parameters(self):
+        factory = super_loop_factory()
+        created_loop = factory(self.CustomLoop)
+        self.assertIsInstance(created_loop, self.CustomLoop)
+        self.assertIsNone(created_loop._green_light)
+        self.assertEqual(created_loop._grace_period, 5)
+        self.assertEqual(created_loop._max_loop_failures, 10)
+        self.assertFalse(created_loop._stop_on_failure)
+        self.assertTrue(created_loop.reset_globally)
+
+    def test_super_loop_factory_custom_parameters(self):
+        custom_green_light = GreenLight()
+        factory = super_loop_factory(green_light=custom_green_light, grace_period=10, max_loop_failures=5, stop_on_failure=True, reset_globally=False)
+        created_loop = factory(self.CustomLoop)
+        self.assertIsInstance(created_loop, self.CustomLoop)
+        self.assertEqual(created_loop._green_light, custom_green_light)
+        self.assertEqual(created_loop._grace_period, 10)
+        self.assertEqual(created_loop._max_loop_failures, 5)
+        self.assertTrue(created_loop._stop_on_failure)
+        self.assertFalse(created_loop.reset_globally)
+
+
+class TestIntegration(unittest.TestCase):
+
+    class GoodLoop(SuperLoop):
+
+        def __init__(self, *args, event, **kwargs):
+            self.event = event
+            super().__init__(*args, **kwargs)
+
+        def cycle(self):
+            self.event.wait()
             time.sleep(0.1)
 
     class BadLoop(SuperLoop):
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args, event, **kwargs):
             super().__init__(*args, **kwargs)
+            self.event = event
             self.counter = 0
 
         def cycle(self):
-            if self.counter >= 3:
-                self.failure()
+            self.event.wait()
             self.counter += 1
+            if self.counter in [3,4,5]:
+                self.failure()
 
         def on_start(self):
-            return (self.counter/2) < self._max_loop_failures
+            return self.counter == 0
 
     def reset_callback(self):
         self.called_reset_callback = True
@@ -407,36 +494,49 @@ class TestIntegration(unittest.TestCase):
     def test_integration(self):
         # logging.basicConfig(level = logging.INFO)
         self.called_reset_callback = False
-        loop_controller = LoopController(reset_callback=self.reset_callback)
+        green_light = GreenLight()
+        green_light.set()
+        loop_factory = super_loop_factory(
+            green_light=green_light,
+            max_loop_failures=2,
+        )
+        loop_controller = loop_factory(LoopController, reset_callback=self.reset_callback, loop_factory=loop_factory)
 
         green_light = loop_controller.green_light
+        event = Event()
+        event.clear()
 
-        loop1 = self.BadLoop(green_light=green_light, max_loop_failures=2)
-        loop2 = self.GoodLoop(green_light=green_light)
+        loop1 = loop_controller.new_from_factory(self.BadLoop, green_light=green_light, max_loop_failures=2, event=event)
+        loop2 = self.GoodLoop(green_light=green_light, event=event)
 
-        loop_controller.new_loop(loop1)
         loop_controller.new_loop(loop2)
 
         loop_controller.start()
-        time.sleep(0.1)  # Give the loop controller some time to start
+
+        # Give the loop controller some time to start
+        while not loop_controller.is_alive:
+            time.sleep(0.1)
 
         # Starting the custom loops
-        loop_controller.maintain_loop(loop1)
         loop_controller.maintain_loop(loop2)
+        loop_controller.maintain_loop(loop1)
 
         # Give some time for the loops to exceed the failure limit
         while not self.called_reset_callback:
+            event.set()
             time.sleep(0.1)
+
+        event.clear()
 
         while not loop_controller.green_light.is_set():
             time.sleep(0.1)
 
         # Check if the reset_callback was called
-        self.assertTrue(self.called_reset_callback)
+        self.assertTrue(self.called_reset_callback, 'Reset callback should have been called')
 
         # Check if both loops have been reset
-        self.assertEqual(loop1._failures, 0)
-        self.assertEqual(loop2._failures, 0)
+        self.assertEqual(0, loop1._failures, 'loop1 should have been reset')
+        self.assertEqual(0, loop2._failures,  'loop2 should have been reset')
 
         # Gracefully stop both loops
         loop_controller.stop_loop(loop1)

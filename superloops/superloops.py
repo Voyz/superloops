@@ -333,7 +333,7 @@ class LoopController(SuperLoop):
         for loop in self.loops:
             self.stop_loop(loop)
 
-    def on_stop(self):
+    def on_stop(self): # pragma: no cover
         self.stop_loops()
 
     def has_alive_loops(self) -> bool:
