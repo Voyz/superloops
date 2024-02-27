@@ -546,5 +546,52 @@ class TestIntegration(unittest.TestCase):
         loop_controller.stop()
 
 
-if __name__ == '__main__':
-    unittest.main()
+class TestLoopControllerGetStalledLoops(unittest.TestCase):
+    def setUp(self):
+        self.reset_callback = Mock()
+        self.controller = LoopController(self.reset_callback)
+        self.loop1 = Mock(spec=SuperLoop)
+        self.loop2 = Mock(spec=SuperLoop)
+        self.loop3 = Mock(spec=SuperLoop)
+
+        self.controller.new_loop(self.loop1)
+        self.controller.new_loop(self.loop2)
+        self.controller.new_loop(self.loop3)
+
+        # Preset the is_alive and running properties for each loop
+        self.loop1.is_alive = True
+        self.loop1.running = True
+
+        self.loop2.is_alive = True
+        self.loop2.running = True
+
+        self.loop3.is_alive = True
+        self.loop3.running = True
+
+        # Preset the is_alive and running properties for the controller itself
+        type(self.controller).is_alive = PropertyMock(return_value=True)
+        type(self.controller).running = PropertyMock(return_value=True)
+
+    def test_get_stalled_loops_no_stalled_loops(self):
+        stalled_loops = self.controller.get_stalled_loops()
+        self.assertListEqual(stalled_loops, [], "Should return an empty list when no loops are stalled")
+
+    def test_get_stalled_loops_with_stalled_loops(self):
+        type(self.controller).is_alive = PropertyMock(return_value=False) # Simulate the controller itself being stalled
+        self.loop3.running = False
+        stalled_loops = self.controller.get_stalled_loops()
+        self.assertIn(self.loop3, stalled_loops, "Loop3 should be in the list of stalled loops")
+        self.assertIn(self.controller, stalled_loops, "Controller should be in the list of stalled loops if it's not alive and running")
+
+    def test_get_stalled_loops_with_all_loops_stalled(self):
+        self.loop1.is_alive = False
+        self.loop2.running = False
+        self.loop3.running = False
+        type(self.controller).is_alive = PropertyMock(return_value=False)
+        type(self.controller).running = PropertyMock(return_value=False)
+
+        stalled_loops = self.controller.get_stalled_loops()
+        self.assertIn(self.loop1, stalled_loops, "Loop1 should be in the list of stalled loops")
+        self.assertIn(self.loop2, stalled_loops, "Loop2 should be in the list of stalled loops")
+        self.assertIn(self.loop3, stalled_loops, "Loop3 should be in the list of stalled loops")
+        self.assertIn(self.controller, stalled_loops, "Controller should be in the list of stalled loops if it's not alive and running")

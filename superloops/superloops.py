@@ -348,6 +348,20 @@ class LoopController(SuperLoop):
     def set_loop_factory(self, factory:callable):
         self._loop_factory = factory
 
+    def get_stalled_loops(self):
+        """
+        Get all loops that are not alive or not running, including the LoopController itself.
+        """
+        stalled_loops = []
+        for loop in self.loops:
+            if not (loop.is_alive and loop.running):
+                stalled_loops.append(loop)
+
+        if not (self.is_alive and self.running):
+            stalled_loops.append(self)
+
+        return stalled_loops
+
     def __str__(self):
         return f"{self.__class__.__qualname__}"
 
